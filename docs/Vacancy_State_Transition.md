@@ -1,184 +1,40 @@
-%% QA Job Tracker Bot v3.0.1 - Detailed Logical & Architectural Flow Diagram
-%% Component Interaction combined with Detailed User/System Activities
+```mermaid
+flowchart TD
+    %% Стилі
+    classDef status fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef archive fill:#ffebee,stroke:#b71c1c,stroke-width:2px;
+    classDef ai fill:#fff3e0,stroke:#e65100,stroke-width:2px;
 
-activityDiagram
-|User (Telegram App)|
-start
-:Ввід URL вакансії або Сирого Тексту;
-|GAS Code.gs (doPost)|
-:Security Check (My ID White-list);
-|GAS Logic.gs (Logic Branch A)|
-if (Перевірка дубліката URL (Utils.gs)) then (Знайдено в Архіві/Активній БД)
-  |User (Telegram App)|
-  :Пуш: "🚨 УВАГА! Ця компанія в АРХІВІ/БАЗІ... Точно хочеш податися знову?";
-  if (Вибір: `❌ Відмінити`) then (Відміна)
-    |GAS Logic.gs (Logic Branch A)|
-    :Скидання State Machine (CacheService.remove);
-    stop
-  else (Вибір: `✅ Все ж таки додати...`)
-    :Продовження флоу подачі;
-  endif
-else (Не знайдено)
-endif
-|GAS AI.gs|
-:AI Парсинг сайту/тексту;
-:AI STLC Аналіз & Генерування Cover Letter (UK/EN JSON);
-|User (Telegram App)|
-:Вивід звіту ШІ: ЗП, Посада, Аналіз, Листи;
-:Клавіатура: `[Гоу далі 🚀]`, `[Залишимо на потім ⏸️]`, `[❌ Скасувати]`;
-if (Вибір користувача) then (`Залишимо на потім` / `❌ Скасувати`)
-  |GAS Logic.gs (Logic Branch A)|
-  :Скидання State Machine (CacheService.remove);
-  |GAS Utils.gs|
-  :`autoSortSheet` (Сортування БД за пріоритетом `D` ArrayFormula);
-  stop
-else (`Гоу далі 🚀`)
-  |User (Telegram App)|
-  :Запит: "💰 Фінансовий етап! Яка твої очікувана ЗП?";
-  :Ввід ЗП вручну;
-  |GAS Logic.gs (Logic Branch A)|
-  :Снайперський запис у Sheets стовпця J (10);
-  :Sheets (Job-трекер) Status = `нова вакансія`;
-  :Глобальна валідація ШІ (`VALIDATION_MENU`);
-  |User (Telegram App)|
-  :Перевірка звіту ШІ користувачем (`Human-in-the-loop`);
-  :Клавіатура: `[✅ Так, записуй]` або `[✏️ Виправити]`;
-  if (Вибір користувача) then (`✏️ Виправити`)
-    :User inputs corrected validated text manually;
-    |GAS Logic.gs (Logic Branch A)|
-    :Accept correction (parseValidationText);
-    :Update Cache with fixed data;
-  else (`✅ Так, записуй`)
-  endif
-  |GAS Logic.gs (Logic Branch A)|
-  :Бот: "Зрозумів. Який канал зв'язку?";
-  |User (Telegram App)|
-  :Вибір Каналу (`Telegram`, `Viber`, `Gmail`, `На платформі`);
-  |GAS Logic.gs (Logic Branch A)|
-  :Запит: "Додати Нотатки?";
-  |User (Telegram App)|
-  :Ввід Нотаток вручну;
-  |GAS Logic.gs (Logic Branch A)|
-  :Sheets Status updated: Status = `Надіслано відгук`;
-  :H Column (Дата контакту) = Today (new Date());
-  |GAS Utils.gs|
-  :`autoSortSheet` (Сортування БД за пріоритетом `D` ArrayFormula);
-endif
-|User (Telegram App)|
-:Пуш: "✅ Статус Надіслано відгук (Старт, запускається пасивний таймер F)";
-stop
+    %% Гілка А: Нова вакансія
+    subgraph BranchA [Гілка А: Нова Вакансія]
+        A1((Старт)) --> A2[Ввід URL / Тексту]
+        A2 --> A3{Дублікат?}
+        A3 -- Так --> A4[Попередження]
+        A4 -- Скасувати --> End1((Кінець))
+        A3 -- Ні / Продовжити --> A5[ШІ: Парсинг & Cover Letter]:::ai
+        A5 --> A6{Вибір Юзера}
+        A6 -- Залишити --> A7[Статус: нова вакансія]:::status
+        A6 -- Гоу далі --> A8[Ввід ЗП] --> A9[Статус: Надіслано відгук]:::status
+    end
 
-%% ---
-%% Branch B: Reply Input Flow
+    %% Гілка Б: Відповідь
+    subgraph BranchB [Гілка Б: Аналіз Відповіді]
+        B1((Старт)) --> B2[Копіпаст тексту рекрутера]
+        B2 --> B3[ШІ: Визначення Статусу/Дати]:::ai
+        B3 --> B4{Валідація Юзером}
+        B4 -- Виправити --> B5[Ручне введення] --> B3
+        B4 -- Підтвердити --> B6{Date Blocker}
+        B6 -- Немає дати події --> B7[Блок! Вимагає дату] --> B5
+        B6 -- Все ОК --> B8[Оновлення Статусу в БД]:::status
+    end
 
-activityDiagram
-|User (Telegram App)|
-start
-:Натиснути кнопку `Аналіз відповіді 📩`;
-:Копіпаст тексту від рекрутера;
-|GAS Code.gs (doPost)|
-:Security Check (My ID White-list);
-|GAS AI.gs|
-:AI STLC Аналіз тексту: Новий статус, Дати, Дедлайни (JSON);
-|User (Telegram App)|
-:Вивід звіту ШІ (новий STLC етап воронки);
-:Клавіатура: `[✅ Так, продовжуй]` або `[❌ Ні, є помилка]`;
-if (Вибір користувача (`Human-in-the-loop`)) then (`❌ Ні, є помилка`)
-  |User (Telegram App)|
-  :Input corrected validated text manually;
-  |GAS Logic.gs (Branch B)|
-  :AI re-analyzes validated text;
-else (`✅ Так, продовжуй`)
-endif
-|GAS Logic.gs (Branch B)|
-:ВАЛІДАЦІЯ + Date Blocker (TC-14);
-if (Розпізнано подію (напр. Технічна) & dateTime пусте?) then (Так, блокувати)
-  |User (Telegram App)|
-  :Бот: "⚠️ Увага: Етап передбачає подію, але ШІ не знайшов дату. Натисніть '✏️ Виправити'...";
-  |GAS Logic.gs (Branch B)|
-  :Wait for user correction (Loop back to val menu);
-  stop
-else (Ні, дата є або події нема)
-endif
-if (Назва компанії пуста (ШІ не знайшов)? (TC-11)) then (Так, пуста)
-  |User (Telegram App)|
-  :Бот: "ШІ не зміг знайти назву компанії. Оберіть її з активних:";
-  :Інлайн-клавіатура active companies;
-  :User selects via inline button;
-else (Ні, компанія є)
-endif
-|GAS Logic.gs (Branch B)|
-if (Status = `Офер`/`Переговори`?) then (Так)
-  |User (Telegram App)|
-  :Запит: "💰 Фінансовий етап! Яка тепер ЗП?" (`KEEP_SALARY_MENU`);
-  :Ввід нової ЗП вручну;
-  |GAS Logic.gs (Branch B)|
-  :update Sheet column J (10);
-else (Ні)
-endif
-if (Status = `Очікування фідбеку` after ТЗ? (TC-04)) then (Так)
-  |User (Telegram App)|
-  :Запит: "Надішліть лінк на виконане ТЗ (Git/Docs)?";
-  :Ввід лінка вручну;
-  |GAS Logic.gs (Branch B)|
-  :update Sheet column P (16);
-else (Ні)
-endif
-|GAS Logic.gs (Branch B)|
-:Sheets (Job-трекер/Архів) updated;
-:M column (Notes) updated with marker `відправили запит-уточнення` if FU sent;
-|GAS Utils.gs|
-:`autoSortSheet` (Сортування БД за пріоритетом `D` ArrayFormula);
-stop
-
-%% ---
-%% Branch C: Admin Mode Loop
-
-activityDiagram
-|AppSheet (God Mode)|
-start
-:User edits Sheet directly;
-|Google Sheets (DataBase)|
-:Status Changed in DB;
-|GAS Code.gs (doPost)|
-:Webhook e.postData.contents IS empty;
-|GAS Utils.gs|
-:`autoSortSheet` (Сортування БД за пріоритетом `D` ArrayFormula);
-stop
-
-%% ---
-%% Branch D: Cron Autonomous Tasks Loop
-
-activityDiagram
-|Time-driven Triggers (Cron Manager)|
-start
-:checkRemindersCron (Вт та Пт о 12:00);
-|GAS Utils.gs|
-:Scan H Column (Дата контакту) >= 7 днів;
-:Check U Column IS empty (No Deadline);
-|User (Telegram App)|
-:Фаза 1: Пуш: "⏰ НАГАДУВАННЯ про тишу! Список компаній:";
-:Inline `[Відправив фоллоу-ап]` button;
-if (User clicks `[Відправив фоллоу-ап]`) then (Так)
-  |GAS Logic.gs (doPost callback)|
-  :Add marker `відправили запит-уточнення` to Notes M (13);
-  :H column (Дата контакту) = Today;
-  |GAS Utils.gs|
-  :`autoSortSheet`;
-else (Ні)
-endif
-:Next cron run;
-|GAS Utils.gs|
-:Scan marker `відправили запит-уточнення` in Notes M;
-:Scan H Column (Дата контакту) >= 3 дні;
-if (Фаза 2 Complete?) then (Так)
-  |GAS Logic.gs (Branch D)|
-  :Sheets (Архів) updated Status = `Відмова (Загостили)`;
-  :Sheets (Job-трекер) Row deleted;
-  |User (Telegram App)|
-  :Пуш: "⛔️ Авто-архів: Відмова (Загостили)";
-  |GAS Utils.gs|
-  :`autoSortSheet`;
-else (Ні)
-endif
-stop
+    %% Фонові задачі та Двовладдя
+    subgraph Cron [Cron Manager & AppSheet]
+        C1((AppSheet)) -.-> |God Mode: Пряма зміна| B8
+        C2((Cron: 10:00)) --> C3{Дедлайн вийшов?}
+        C3 -- Так --> C4[Авто-архів: Тайм-аут]:::archive
+        C5((Cron: 12:00)) --> C6{Детектор Гостингу}
+        C6 -- Фаза 1: >7 днів мовчання --> C7[Пуш: Надіслати Фоллоу-ап?]
+        C6 -- Фаза 2: >3 дні після ФУ --> C8[Авто-архів: Загостили]:::archive
+    end
+```
