@@ -27,7 +27,7 @@
 
 ### 1. Тестова документація
 - **State Transition Diagram:** Логіка переходів статусів вакансії та обробка скасувань.
-![State Transition Diagram](docs/Vacancy_State_Transition.png)
+🔗 **State Transition Diagram:** [Логіка переходів статусів (Mermaid)](docs/Vacancy_State_Transition.md)
 - **Test Cases & Checklists:** [Посилання на Qase.io / таблицю] *(Тут буде лінк на твої тест-кейси)*
 - **Postman Collection:** У папці `/api_testing` цього репозиторію лежить експортована колекція з налаштованими запитами до Telegram API для тестування відправки повідомлень та вебхуків.
 
